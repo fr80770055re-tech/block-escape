@@ -1,8 +1,7 @@
 (function () {
 'use strict';
-// relies on level.js globals: DIRS, opp, axisOf, cellKey, step, aheadCells, generateLevel, starThresholds, starsFor
+// relies on level.js globals: DIRS, opp, axisOf, cellKey, step, aheadCells, generateLevel
 
-const MISTAKE_PENALTY = 2, HINT_PENALTY = 5;
 const BODY_COLORS = ['#ffd6bf', '#cfe4ff', '#d3efcd', '#e4d8ff', '#ffefb3', '#ffd1df', '#c6efe7', '#ffe0c2'];
 const ARROW_COLOR = 0x2f2c3a, HINT_COLOR = 0xffa21e, ERR_COLOR = 0xe5484d;
 const RIBBON_W = 0.3, LIFT = 0.018, TAIL_BACK = 0.3, HEAD_LEN = 0.36, HEAD_W = 0.66;
@@ -196,12 +195,11 @@ function loadLevel(n) {
   fitCamera();
 
   stats = { started: false, t0: 0, elapsed: 0, mistakes: 0, hints: 0, removed: 0, done: false };
-  level.th = starThresholds(arrows.length);
   $('lvl').textContent = '第 ' + n + ' 關 · ' + A + '×' + B + '×' + C;
   hideOverlays();
   showTip(n === 1 ? '點一下箭頭，它會沿著箭頭方向整條滑出。前方被別的箭頭擋住就出不去。拖曳可旋轉方塊。'
-        : n === 2 ? '箭頭可以繞過方塊的稜角。點錯一次 +2 秒，越快清空星星越多！'
-        : n === 4 ? '雙指或滾輪可以縮放。卡住時試試提示（+5 秒）。' : '');
+        : n === 2 ? '箭頭可以繞過方塊的稜角。每關的破關秒數會記錄下來。'
+        : n === 4 ? '雙指或滾輪可以縮放。卡住時試試提示。' : '');
   updateHud();
 }
 
@@ -244,7 +242,6 @@ function tapArrow(a) {
         a.mat.color.setHex(a.hint ? HINT_COLOR : ARROW_COLOR);
         if (blocker.alive) blocker.mat.color.setHex(blocker.hint ? HINT_COLOR : ARROW_COLOR); });
     sfx.bump(); vibrate([20, 30, 20]);
-    flashTimer();
   }
   updateHud();
 }
@@ -266,28 +263,26 @@ function useHint() {
     a.mat.color.copy(base).lerp(hl, 0.55 + 0.45 * Math.abs(Math.sin(k * Math.PI * 4)));
   }, () => { a.hint = null; if (a.alive) a.mat.color.setHex(ARROW_COLOR); });
   sfx.hint();
-  flashTimer();
   updateHud();
 }
 
-function effectiveTime() {
-  const raw = stats.started ? (stats.done ? stats.elapsed : (performance.now() - stats.t0) / 1000) : 0;
-  return raw + stats.mistakes * MISTAKE_PENALTY + stats.hints * HINT_PENALTY;
+function elapsedTime() {
+  return stats.started ? (stats.done ? stats.elapsed : (performance.now() - stats.t0) / 1000) : 0;
 }
 
 function finishLevel() {
   stats.done = true;
   stats.elapsed = (performance.now() - stats.t0) / 1000;
-  const total = effectiveTime(), stars = starsFor(total, level.th);
+  const total = elapsedTime();
   const n = level.n, prev = save.best[n];
   const isNewBest = !prev || total < prev.time;
-  save.best[n] = { stars: Math.max(stars, prev ? prev.stars : 0), time: isNewBest ? +total.toFixed(1) : prev.time };
+  save.best[n] = { time: isNewBest ? +total.toFixed(1) : prev.time };
   save.unlocked = Math.max(save.unlocked, n + 1);
   persist();
   // little celebration spin of the bare cube
   const q0 = pivot.quaternion.clone();
   addTween(900, k => { pivot.quaternion.copy(q0); rotatePivot(k * k * 1.2, 0); cube.scale.setScalar(1 + Math.sin(k * Math.PI) * 0.06); });
-  setTimeout(() => showWin(stars, total, isNewBest && !!prev), 750);
+  setTimeout(() => showWin(total, isNewBest && !!prev), 750);
 }
 
 // ---------- camera & controls ----------
@@ -395,21 +390,11 @@ window.addEventListener('keydown', e => {
 
 // ---------- HUD & sheets ----------
 function $(id) { return document.getElementById(id); }
-function starStr(n) { let s = ''; for (let i = 0; i < 3; i++) s += i < n ? '★' : '<span class="off">★</span>'; return s; }
-let lastStars = '';
 function updateHud() {
   if (!stats) return;
-  const t = effectiveTime(), st = starsFor(t, level.th);
-  $('timer').textContent = t.toFixed(1);
-  const html = starStr(st);
-  if (html !== lastStars) { $('liveStars').innerHTML = html; lastStars = html; }
-  const left = arrows.length - stats.removed;
-  const next = st === 3 ? level.th.three : st === 2 ? level.th.two : null;
-  $('meta').textContent = '剩 ' + left + ' 支箭頭' + (next !== null ? '　' + '★'.repeat(st) + ' 還剩 ' + Math.max(0, next - t).toFixed(0) + ' 秒' : '');
-}
-function flashTimer() {
-  const t = $('timer'); t.style.color = 'var(--danger)';
-  clearTimeout(flashTimer._t); flashTimer._t = setTimeout(() => t.style.color = '', 380);
+  $('timer').textContent = elapsedTime().toFixed(1);
+  const left = arrows.length - stats.removed, best = save.best[level.n];
+  $('meta').textContent = '剩 ' + left + ' 支箭頭' + (best ? '　最佳 ' + best.time.toFixed(1) + ' 秒' : '');
 }
 let tipTimer = 0;
 function showTip(text) {
@@ -421,26 +406,20 @@ function showTip(text) {
 }
 function hideOverlays() { $('winOverlay').classList.remove('show'); $('menuOverlay').classList.remove('show'); }
 
-function showWin(stars, total, beatPrev) {
-  $('winTitle').textContent = stars === 3 ? '完美脫逃！' : stars === 2 ? '漂亮過關！' : '過關！';
-  const spans = $('winStars').children;
-  for (let i = 0; i < 3; i++) spans[i].classList.remove('on');
-  for (let i = 0; i < stars; i++) setTimeout(() => spans[i].classList.add('on'), 250 + i * 230);
+function showWin(total, beatPrev) {
+  $('winTitle').textContent = beatPrev ? '新紀錄！' : '過關！';
+  $('winTime').textContent = total.toFixed(1) + ' 秒';
   const best = save.best[level.n];
   const rows = [
-    ['用時', stats.elapsed.toFixed(1) + ' 秒'],
-    ['點錯 ' + stats.mistakes + ' 次', '+' + stats.mistakes * MISTAKE_PENALTY + ' 秒'],
-    ['提示 ' + stats.hints + ' 次', '+' + stats.hints * HINT_PENALTY + ' 秒'],
-    ['<span class="sum">總計</span>', '<span class="sum">' + total.toFixed(1) + ' 秒</span>'],
-    ['★★★ ／ ★★', '≤ ' + level.th.three + ' ／ ≤ ' + level.th.two + ' 秒'],
+    ['點錯', stats.mistakes + ' 次'],
+    ['提示', stats.hints + ' 次'],
     ['最佳紀錄', (beatPrev ? '<span class="new">新紀錄！</span> ' : '') + best.time.toFixed(1) + ' 秒'],
   ];
   $('winRows').innerHTML = rows.map(r => '<span>' + r[0] + '</span><span>' + r[1] + '</span>').join('');
   $('winOverlay').classList.add('show');
-  sfx.win(stars); vibrate([30, 40, 30]);
+  sfx.win(3); vibrate([30, 40, 30]);
 }
 
-function totalStars() { return Object.values(save.best).reduce((a, b) => a + (b.stars || 0), 0); }
 function openMenu() {
   const maxShow = Math.max(25, Math.ceil((save.unlocked + 1) / 5) * 5);
   const g = $('levelGrid'); g.innerHTML = '';
@@ -448,11 +427,11 @@ function openMenu() {
     const b = document.createElement('button');
     const best = save.best[n], locked = n > save.unlocked;
     b.className = 'cell' + (locked ? ' locked' : '') + (level && n === level.n ? ' cur' : '');
-    b.innerHTML = '<b>' + (locked ? '🔒' : n) + '</b><i>' + (locked ? '&nbsp;' : starStr(best ? best.stars : 0)) + '</i>';
+    b.innerHTML = '<b>' + (locked ? '🔒' : n) + '</b><i>' + (locked || !best ? '&nbsp;' : best.time.toFixed(1) + '″') + '</i>';
     if (locked) b.disabled = true; else b.onclick = () => loadLevel(n);
     g.appendChild(b);
   }
-  $('totalStars').textContent = '★ ' + totalStars() + ' / ' + Object.keys(save.best).length * 3;
+  $('totalStars').textContent = '已破 ' + Object.keys(save.best).length + ' 關';
   $('winOverlay').classList.remove('show');
   $('menuOverlay').classList.add('show');
   const cur = g.querySelector('.cur'); cur && cur.scrollIntoView({ block: 'center' });

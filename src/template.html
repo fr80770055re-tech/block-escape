@@ -30,8 +30,6 @@ body{background:radial-gradient(130% 80% at 50% 35%,#fbf8f3 0%,var(--bg) 55%,var
 .center{text-align:center;line-height:1.15}
 .lvl{font-size:13px;font-weight:700;color:var(--muted);letter-spacing:.5px}
 .timer{font-size:30px;font-weight:900;font-variant-numeric:tabular-nums;letter-spacing:.5px;transition:color .2s}
-.stars{font-size:16px;letter-spacing:3px;color:var(--star)}
-.stars .off{color:rgba(43,42,51,.15)}
 .meta{position:fixed;left:0;right:0;top:calc(96px + var(--safe-t));text-align:center;font-size:12.5px;color:var(--muted);pointer-events:none}
 
 /* ---------- bottom bar ---------- */
@@ -62,9 +60,7 @@ body{background:radial-gradient(130% 80% at 50% 35%,#fbf8f3 0%,var(--bg) 55%,var
 }
 .grab{width:40px;height:5px;border-radius:3px;background:var(--line);margin:-8px auto 14px}
 .sheet h2{margin:0;text-align:center;font-size:26px;font-weight:900}
-.big-stars{text-align:center;font-size:54px;letter-spacing:8px;margin:4px 0 6px}
-.big-stars span{display:inline-block;color:rgba(43,42,51,.12);transform:scale(.5);transition:transform .4s cubic-bezier(.3,1.7,.5,1),color .15s}
-.big-stars span.on{color:var(--star);transform:scale(1)}
+.win-time{text-align:center;font-size:46px;font-weight:900;font-variant-numeric:tabular-nums;color:var(--accent);margin:6px 0 2px}
 .rows{display:grid;grid-template-columns:1fr auto;gap:8px 16px;margin:10px 4px 18px;font-size:15px}
 .rows span:nth-child(even){text-align:right;font-variant-numeric:tabular-nums;font-weight:700}
 .rows .sum{font-weight:900;font-size:17px;border-top:1px solid var(--line);padding-top:8px}
@@ -74,13 +70,12 @@ body{background:radial-gradient(130% 80% at 50% 35%,#fbf8f3 0%,var(--bg) 55%,var
 .menu .sheet{height:min(86vh,720px);display:flex;flex-direction:column}
 .menu-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px}
 .menu-head h2{text-align:left;font-size:22px}
-.total{font-weight:900;color:var(--star);font-size:18px}
+.total{font-weight:800;color:var(--muted);font-size:15px}
 .grid{flex:1;overflow:auto;display:grid;grid-template-columns:repeat(5,1fr);gap:10px;align-content:start;padding:2px 2px 8px;-webkit-overflow-scrolling:touch}
 .cell{aspect-ratio:1;border-radius:16px;border:none;background:var(--bg);font:inherit;color:var(--ink);cursor:pointer;
   display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px}
 .cell b{font-size:19px;font-weight:900}
-.cell i{font-style:normal;font-size:11px;letter-spacing:1px;color:var(--star)}
-.cell i .off{color:rgba(43,42,51,.15)}
+.cell i{font-style:normal;font-size:11px;color:var(--muted);font-variant-numeric:tabular-nums}
 .cell.cur{outline:3px solid var(--accent)}
 .cell.locked{opacity:.4;cursor:default}
 .legend{font-size:12.5px;color:var(--muted);text-align:center;margin-top:10px;line-height:1.5}
@@ -94,7 +89,6 @@ body{background:radial-gradient(130% 80% at 50% 35%,#fbf8f3 0%,var(--bg) 55%,var
   <div class="center">
     <div class="lvl" id="lvl">第 1 關</div>
     <div class="timer" id="timer">0.0</div>
-    <div class="stars" id="liveStars"></div>
   </div>
   <button class="round" id="btnMute" aria-label="靜音">🔊</button>
 </div>
@@ -104,14 +98,14 @@ body{background:radial-gradient(130% 80% at 50% 35%,#fbf8f3 0%,var(--bg) 55%,var
 
 <div class="bottom">
   <button class="btn" id="btnRestart">↺ 重來</button>
-  <button class="btn primary" id="btnHint">💡 提示 <small>+5 秒</small></button>
+  <button class="btn primary" id="btnHint">💡 提示</button>
 </div>
 
 <div class="overlay" id="winOverlay">
   <div class="sheet">
     <div class="grab"></div>
     <h2 id="winTitle">過關！</h2>
-    <div class="big-stars" id="winStars"><span>★</span><span>★</span><span>★</span></div>
+    <div class="win-time" id="winTime"></div>
     <div class="rows" id="winRows"></div>
     <div class="actions">
       <button class="btn primary" id="btnNext">下一關 →</button>
@@ -126,11 +120,11 @@ body{background:radial-gradient(130% 80% at 50% 35%,#fbf8f3 0%,var(--bg) 55%,var
     <div class="grab"></div>
     <div class="menu-head">
       <h2>關卡選單</h2>
-      <div class="total" id="totalStars">★ 0</div>
+      <div class="total" id="totalStars"></div>
       <button class="round" id="btnCloseMenu" aria-label="關閉">✕</button>
     </div>
     <div class="grid" id="levelGrid"></div>
-    <div class="legend">越快清空越多星。點錯一次 +2 秒、使用提示一次 +5 秒。</div>
+    <div class="legend">格子下方是每關最佳破關秒數，可重玩挑戰更快紀錄。</div>
   </div>
 </div>
 
