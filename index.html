@@ -492,10 +492,11 @@ function tapArrow(a) {
     if (a.hint) { tweens.delete(a.hint); a.hint = null; }
     a.mat.color.setHex(ARROW_COLOR);
     const s0 = a.s, dist = a.path.edgeArc + TAIL_BACK + 1.5;
-    const dur = 260 + dist * 38;
+    // fast launch: starts at full speed and still accelerates a little
+    const dur = 140 + dist * 14;
     addTween(dur, k => {
-      a.s = s0 + (dist - s0) * (k * k * 0.55 + k * 0.45);
-      a.mat.opacity = k < 0.75 ? 1 : 1 - (k - 0.75) / 0.25;
+      a.s = s0 + (dist - s0) * (k * 0.7 + k * k * 0.3);
+      a.mat.opacity = k < 0.7 ? 1 : 1 - (k - 0.7) / 0.3;
       drawArrow(a);
     }, () => { content.remove(a.body, a.head, a.tail); });
     sfx.slide(); vibrate(8);
