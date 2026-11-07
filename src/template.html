@@ -1,0 +1,141 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="theme-color" content="#f3eee6">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<title>方塊脫逃 Block Escape</title>
+<style>
+:root{
+  --bg:#f3eee6; --bg2:#e6dfd3; --ink:#2b2a33; --muted:#857f76; --card:#fffdf9; --line:rgba(43,42,51,.10);
+  --accent:#ff7a45; --accent-ink:#fff; --star:#ffb21e; --danger:#e5484d; --chip:#ffffffcc;
+  --safe-t:env(safe-area-inset-top,0px); --safe-b:env(safe-area-inset-bottom,0px);
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;height:100%;overflow:hidden;color:var(--ink);background:var(--bg);
+  font-family:"Noto Sans TC","PingFang TC","Microsoft JhengHei",system-ui,sans-serif;
+  user-select:none;-webkit-user-select:none;overscroll-behavior:none}
+body{background:radial-gradient(130% 80% at 50% 35%,#fbf8f3 0%,var(--bg) 55%,var(--bg2) 100%)}
+#stage{position:fixed;inset:0;touch-action:none}
+#stage canvas{display:block}
+
+/* ---------- top bar ---------- */
+.top{position:fixed;left:50%;transform:translateX(-50%);top:0;width:100%;max-width:520px;
+  padding:calc(10px + var(--safe-t)) 16px 0;display:grid;grid-template-columns:48px 1fr 48px;align-items:center;gap:8px;pointer-events:none}
+.top > *{pointer-events:auto}
+.round{width:48px;height:48px;border-radius:50%;border:none;background:var(--chip);box-shadow:0 2px 10px rgba(60,40,20,.08);
+  font-size:20px;display:grid;place-items:center;color:var(--ink);cursor:pointer}
+.round:active{transform:scale(.92)}
+.center{text-align:center;line-height:1.15}
+.lvl{font-size:13px;font-weight:700;color:var(--muted);letter-spacing:.5px}
+.timer{font-size:30px;font-weight:900;font-variant-numeric:tabular-nums;letter-spacing:.5px;transition:color .2s}
+.stars{font-size:16px;letter-spacing:3px;color:var(--star)}
+.stars .off{color:rgba(43,42,51,.15)}
+.meta{position:fixed;left:0;right:0;top:calc(96px + var(--safe-t));text-align:center;font-size:12.5px;color:var(--muted);pointer-events:none}
+
+/* ---------- bottom bar ---------- */
+.bottom{position:fixed;left:50%;transform:translateX(-50%);bottom:0;width:100%;max-width:520px;
+  padding:0 16px calc(16px + var(--safe-b));display:grid;grid-template-columns:1fr 1.4fr;gap:10px;pointer-events:none}
+.bottom > *{pointer-events:auto}
+.btn{height:56px;border-radius:18px;border:none;font:inherit;font-size:17px;font-weight:800;cursor:pointer;
+  background:var(--card);color:var(--ink);box-shadow:0 4px 14px rgba(60,40,20,.10)}
+.btn:active{transform:scale(.97)}
+.btn.primary{background:var(--accent);color:var(--accent-ink);box-shadow:0 6px 18px rgba(255,122,69,.35)}
+.btn small{font-weight:600;opacity:.8;font-size:13px}
+
+.tip{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(88px + var(--safe-b));width:calc(100% - 32px);max-width:488px;
+  background:rgba(43,42,51,.88);color:#fff;padding:12px 16px;border-radius:14px;font-size:14px;line-height:1.5;text-align:center;
+  pointer-events:none;opacity:0;transition:opacity .35s}
+.tip:empty{display:none}
+
+/* ---------- sheets ---------- */
+.overlay{position:fixed;inset:0;display:flex;align-items:flex-end;justify-content:center;z-index:10;
+  background:rgba(30,25,20,.35);opacity:0;pointer-events:none;transition:opacity .25s}
+.overlay.show{opacity:1;pointer-events:auto}
+.sheet{width:100%;max-width:520px;background:var(--card);border-radius:26px 26px 0 0;
+  padding:22px 20px calc(20px + var(--safe-b));transform:translateY(30px);transition:transform .3s cubic-bezier(.2,.9,.3,1.1);
+  box-shadow:0 -10px 40px rgba(0,0,0,.15)}
+.overlay.show .sheet{transform:none}
+@media (min-width:600px) and (min-height:600px){
+  .overlay{align-items:center}.sheet{border-radius:26px;padding-bottom:22px}
+}
+.grab{width:40px;height:5px;border-radius:3px;background:var(--line);margin:-8px auto 14px}
+.sheet h2{margin:0;text-align:center;font-size:26px;font-weight:900}
+.big-stars{text-align:center;font-size:54px;letter-spacing:8px;margin:4px 0 6px}
+.big-stars span{display:inline-block;color:rgba(43,42,51,.12);transform:scale(.5);transition:transform .4s cubic-bezier(.3,1.7,.5,1),color .15s}
+.big-stars span.on{color:var(--star);transform:scale(1)}
+.rows{display:grid;grid-template-columns:1fr auto;gap:8px 16px;margin:10px 4px 18px;font-size:15px}
+.rows span:nth-child(even){text-align:right;font-variant-numeric:tabular-nums;font-weight:700}
+.rows .sum{font-weight:900;font-size:17px;border-top:1px solid var(--line);padding-top:8px}
+.rows .new{color:var(--accent)}
+.actions{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.actions .btn.primary{grid-column:1 / -1}
+.menu .sheet{height:min(86vh,720px);display:flex;flex-direction:column}
+.menu-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px}
+.menu-head h2{text-align:left;font-size:22px}
+.total{font-weight:900;color:var(--star);font-size:18px}
+.grid{flex:1;overflow:auto;display:grid;grid-template-columns:repeat(5,1fr);gap:10px;align-content:start;padding:2px 2px 8px;-webkit-overflow-scrolling:touch}
+.cell{aspect-ratio:1;border-radius:16px;border:none;background:var(--bg);font:inherit;color:var(--ink);cursor:pointer;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px}
+.cell b{font-size:19px;font-weight:900}
+.cell i{font-style:normal;font-size:11px;letter-spacing:1px;color:var(--star)}
+.cell i .off{color:rgba(43,42,51,.15)}
+.cell.cur{outline:3px solid var(--accent)}
+.cell.locked{opacity:.4;cursor:default}
+.legend{font-size:12.5px;color:var(--muted);text-align:center;margin-top:10px;line-height:1.5}
+</style>
+</head>
+<body>
+<div id="stage"></div>
+
+<div class="top">
+  <button class="round" id="btnMenu" aria-label="關卡選單">☰</button>
+  <div class="center">
+    <div class="lvl" id="lvl">第 1 關</div>
+    <div class="timer" id="timer">0.0</div>
+    <div class="stars" id="liveStars"></div>
+  </div>
+  <button class="round" id="btnMute" aria-label="靜音">🔊</button>
+</div>
+<div class="meta" id="meta"></div>
+
+<div class="tip" id="tip"></div>
+
+<div class="bottom">
+  <button class="btn" id="btnRestart">↺ 重來</button>
+  <button class="btn primary" id="btnHint">💡 提示 <small>+5 秒</small></button>
+</div>
+
+<div class="overlay" id="winOverlay">
+  <div class="sheet">
+    <div class="grab"></div>
+    <h2 id="winTitle">過關！</h2>
+    <div class="big-stars" id="winStars"><span>★</span><span>★</span><span>★</span></div>
+    <div class="rows" id="winRows"></div>
+    <div class="actions">
+      <button class="btn primary" id="btnNext">下一關 →</button>
+      <button class="btn" id="btnReplay">再玩一次</button>
+      <button class="btn" id="btnWinMenu">關卡選單</button>
+    </div>
+  </div>
+</div>
+
+<div class="overlay menu" id="menuOverlay">
+  <div class="sheet">
+    <div class="grab"></div>
+    <div class="menu-head">
+      <h2>關卡選單</h2>
+      <div class="total" id="totalStars">★ 0</div>
+      <button class="round" id="btnCloseMenu" aria-label="關閉">✕</button>
+    </div>
+    <div class="grid" id="levelGrid"></div>
+    <div class="legend">越快清空越多星。點錯一次 +2 秒、使用提示一次 +5 秒。</div>
+  </div>
+</div>
+
+<script>/*THREE*/</script>
+<script>/*LEVEL*/</script>
+<script>/*GAME*/</script>
+</body>
+</html>
