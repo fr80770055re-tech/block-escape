@@ -37,6 +37,7 @@ const sfx = {
   slide() { tone(380 + Math.random() * 140, 0.22, 'triangle', 0.15, 1400); },
   bump() { tone(160, 0.14, 'square', 0.06, 80); tone(95, 0.12, 'sine', 0.2, 60); },
   hint() { tone(880, 0.12, 'sine', 0.1); tone(1320, 0.18, 'sine', 0.08, null, 0.08); },
+  bedtime() { [784, 659, 523, 392].forEach((f, i) => tone(f, 0.5, 'sine', 0.12, null, i * 0.28)); },
   win(stars) { [523, 659, 784, 1046, 1318].slice(0, 2 + stars).forEach((f, i) => tone(f, 0.3, 'triangle', 0.14, null, i * 0.11)); },
 };
 function vibrate(ms) { try { navigator.vibrate && navigator.vibrate(ms); } catch (e) {} }
@@ -211,7 +212,7 @@ function blockerOf(a) {
 function startClock() { if (!stats.started && !stats.done) { stats.started = true; stats.t0 = performance.now(); } }
 
 function tapArrow(a) {
-  if (stats.done || !a.alive) return;
+  if (stats.done || !a.alive || sleeping) return;
   startClock();
   const blocker = blockerOf(a);
   if (!blocker) {
@@ -247,7 +248,7 @@ function tapArrow(a) {
 }
 
 function useHint() {
-  if (stats.done) return;
+  if (stats.done || sleeping) return;
   const free = arrows.filter(a => a.alive && !blockerOf(a));
   if (!free.length) return;
   startClock();
@@ -267,8 +268,13 @@ function useHint() {
 }
 
 function elapsedTime() {
-  return stats.started ? (stats.done ? stats.elapsed : (performance.now() - stats.t0) / 1000) : 0;
+  if (!stats.started) return 0;
+  if (stats.done) return stats.elapsed;
+  return ((stats.pausedAt || performance.now()) - stats.t0) / 1000;
 }
+// the clock stops while the bedtime reminder is up
+function pauseClock() { if (stats && stats.started && !stats.done && !stats.pausedAt) stats.pausedAt = performance.now(); }
+function resumeClock() { if (stats && stats.pausedAt) { stats.t0 += performance.now() - stats.pausedAt; stats.pausedAt = 0; } }
 
 function finishLevel() {
   stats.done = true;
@@ -447,6 +453,33 @@ $('btnRestart').onclick = () => loadLevel(level.n);
 $('btnNext').onclick = () => loadLevel(level.n + 1);
 $('btnReplay').onclick = () => loadLevel(level.n);
 $('btnWinMenu').onclick = openMenu;
+
+// ---------- bedtime reminder: from 23:00 until 05:00, re-reminds 15 minutes after "再玩一下" ----------
+const BED_HOUR = 23, WAKE_HOUR = 5, SNOOZE_MIN = 15;
+let sleeping = false, snoozeUntil = 0;
+function isBedtime(d) { const h = d.getHours(); return h >= BED_HOUR || h < WAKE_HOUR; }
+function checkBedtime(d) {
+  d = d || new Date();
+  if (sleeping || !isBedtime(d) || Date.now() < snoozeUntil) return false;
+  sleeping = true;
+  pauseClock();
+  $('sleepAsk').hidden = false; $('sleepNight').hidden = true;
+  $('sleepTime').textContent = d.getHours() + ':' + String(d.getMinutes()).padStart(2, '0');
+  $('sleepOverlay').classList.add('show');
+  sfx.bedtime(); vibrate([40, 60, 40]);
+  return true;
+}
+function snoozeBedtime() {
+  snoozeUntil = Date.now() + SNOOZE_MIN * 60000;
+  sleeping = false;
+  $('sleepOverlay').classList.remove('show');
+  resumeClock();
+}
+$('btnSleep').onclick = () => { $('sleepAsk').hidden = true; $('sleepNight').hidden = false; };
+$('btnSnooze').onclick = snoozeBedtime;
+$('btnWake').onclick = snoozeBedtime;
+setInterval(() => checkBedtime(), 20000);
+document.addEventListener('visibilitychange', () => { if (!document.hidden) checkBedtime(); });
 syncMute();
 
 // ---------- loop ----------
@@ -465,12 +498,14 @@ function frame(now) {
 }
 
 loadLevel(Math.min(save.current || 1, save.unlocked || 1));
+checkBedtime();
 requestAnimationFrame(frame);
 
 // test hook
 window.__blockEscape = {
   tapFree() { const a = arrows.find(a => a.alive && !blockerOf(a)); if (a) tapArrow(a); return !!a; },
   tapBlocked() { const a = arrows.find(a => a.alive && blockerOf(a)); if (a) tapArrow(a); return !!a; },
-  state: () => ({ stats, n: level.n, arrows: arrows.length }),
+  state: () => ({ stats, n: level.n, arrows: arrows.length, sleeping }),
+  bedtime: d => { snoozeUntil = 0; return checkBedtime(d); },
 };
 })();

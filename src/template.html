@@ -78,6 +78,14 @@ body{background:radial-gradient(130% 80% at 50% 35%,#fbf8f3 0%,var(--bg) 55%,var
 .cell i{font-style:normal;font-size:11px;color:var(--muted);font-variant-numeric:tabular-nums}
 .cell.cur{outline:3px solid var(--accent)}
 .cell.locked{opacity:.4;cursor:default}
+.sleep{z-index:20;background:rgba(14,16,40,.72)}
+.sleep .sheet{background:linear-gradient(180deg,#26285a,#1a1b3d);color:#eef0ff;text-align:center}
+.sleep .moon{font-size:58px;line-height:1;margin:2px 0 8px}
+.sleep p{margin:10px 6px 20px;font-size:16px;line-height:1.6;color:#c9cdf2}
+.sleep p b{color:#ffd77a}
+.sleep .btn{background:rgba(255,255,255,.12);color:#eef0ff;box-shadow:none}
+.sleep .btn.primary{background:#ffd77a;color:#26285a}
+.sleep .link{background:none;border:none;color:#9aa0d6;font:inherit;font-size:14px;margin-top:14px;text-decoration:underline;cursor:pointer}
 .legend{font-size:12.5px;color:var(--muted);text-align:center;margin-top:10px;line-height:1.5}
 </style>
 </head>
@@ -125,6 +133,26 @@ body{background:radial-gradient(130% 80% at 50% 35%,#fbf8f3 0%,var(--bg) 55%,var
     </div>
     <div class="grid" id="levelGrid"></div>
     <div class="legend">格子下方是每關最佳破關秒數，可重玩挑戰更快紀錄。</div>
+  </div>
+</div>
+
+<div class="overlay sleep" id="sleepOverlay">
+  <div class="sheet">
+    <div id="sleepAsk">
+      <div class="moon">🌙</div>
+      <h2>該準備睡覺囉！</h2>
+      <p>現在已經 <b id="sleepTime">23:00</b> 了。<br>眼睛和大腦都需要休息，進度已經幫你存好，明天再來挑戰吧！</p>
+      <div class="actions">
+        <button class="btn primary" id="btnSleep">好，我去睡覺 💤</button>
+        <button class="btn" id="btnSnooze" style="grid-column:1 / -1">再玩一下（15 分鐘後再提醒）</button>
+      </div>
+    </div>
+    <div id="sleepNight" hidden>
+      <div class="moon">😴</div>
+      <h2>晚安，明天見！</h2>
+      <p>可以把手機放下，關燈睡覺囉。</p>
+      <button class="link" id="btnWake">還要繼續玩</button>
+    </div>
   </div>
 </div>
 
